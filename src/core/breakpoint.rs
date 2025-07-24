@@ -26,7 +26,7 @@ impl PtraceOps for RealPtrace {
 pub struct Breakpoint {
     pub enabled: bool,
     pub addr: u64,
-    pub original_byte: u8, 
+    pub original_byte: u8,
     pub temporary: bool,
     pub hit_count: u64,
 }
@@ -100,12 +100,44 @@ impl<'a, P: PtraceOps> BreakpointManager<'a, P> {
         }
     }
 
+    pub fn get_breakpoints(&self) -> Vec<&Breakpoint> {
+        self.breakpoints.values().collect()
+    }
+
     pub fn has_breakpoint(&self, addr: u64) -> bool {
         self.breakpoints.contains_key(&addr)
     }
 
     pub fn breakpoint_addresses(&self) -> Vec<u64> {
         self.breakpoints.keys().cloned().collect()
+    }
+
+    pub fn clear_all_breakpoints(&mut self, pid: Pid) -> Result<()> {
+        for addr in self.breakpoints.keys().cloned().collect::<Vec<_>>() {
+            self.remove_breakpoint(addr, pid)?;
+        }
+        Ok(())
+    }
+
+    pub fn enable_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
+        //might be added later, check if necessary
+    }
+
+    pub fn disable_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
+        //might be added later, check if necessary
+    }
+
+    pub fn hit_breakpoint(&mut self, addr: u64) -> Result<()> {
+        if let Some(bp) = self.breakpoints.get_mut(&addr) {
+            bp.hit_count += 1;
+            Ok(())
+        } else {
+            bail!("breakpoint not found");
+        }
+    }
+
+    pub fn get_hit_count(&self, addr: u64) -> Option<u64> {
+        self.breakpoints.get(&addr).map(|bp| bp.hit_count)
     }
 }
 #[cfg(test)]
@@ -127,7 +159,7 @@ mod tests {
     fn test_set_and_remove_breakpoint() {
         let mut mock_ptrace = MockPtrace::new();
         let pid = Pid::from_raw(1234);
-        let test_addr: u64 = 0x1003; 
+        let test_addr: u64 = 0x1003;
         let aligned_addr = test_addr & !0x7;
         let byte_offset = (test_addr % 8) as u32;
 
