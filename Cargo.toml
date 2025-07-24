@@ -1,0 +1,10 @@
+[package]
+name = "rusty-engine"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+log = "0.4.27"
+mockall = "0.13.1"
+nix = { version = "0.30", features = ["process", "ptrace"] }
