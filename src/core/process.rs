@@ -2,7 +2,9 @@ use crate::core::map::Map;
 use anyhow::{Result, bail};
 use log::{debug, info, warn};
 use nix::sys::ptrace;
-use nix::unistd::Pid;
+use nix::sys::wait::{WaitStatus, waitpid};
+use nix::unistd::{ForkResult, Pid, execv, fork};
+use std::ffi::CString;
 use std::fs;
 use std::io::{BufRead, BufReader};
 
@@ -14,6 +16,41 @@ pub struct Process {
 }
 
 impl Process {
+    pub fn run(exe_path: &str, args: &[&str]) -> Result<Self> {
+        let exe_cstr = CString::new(exe_path)?;
+        let args_cstr: Vec<CString> = std::iter::once(exe_path)
+            .chain(args.iter().cloned())
+            .map(|s| CString::new(s).unwrap())
+            .collect();
+
+        match unsafe { fork()? } {
+            ForkResult::Child => {
+                ptrace::traceme()?;
+                // Send SIGSTOP to allow parent to take control early
+                nix::sys::signal::kill(nix::unistd::getpid(), nix::sys::signal::SIGSTOP)?;
+
+                execv(&exe_cstr, &args_cstr)?;
+                panic!("Failed to execv the process");
+            }
+            ForkResult::Parent { child } => match waitpid(child, None)? {
+                WaitStatus::Stopped(_, nix::sys::signal::SIGSTOP) => {
+                    info!("Child stopped, now creating Process struct");
+
+                    let maps = Map::from_pid(child)?;
+
+                    Ok(Process {
+                        pid: child,
+                        maps,
+                        base_addr: 0,
+                    })
+                }
+                other => {
+                    bail!("Expected child to stop due to SIGSTOP, got {:?}", other)
+                }
+            },
+        }
+    }
+
     pub fn attach(pid: i32) -> Result<Self> {
         let pid = Pid::from_raw(pid);
         ptrace::attach(pid)?;
@@ -159,6 +196,16 @@ mod tests {
         } else {
             println!("Base address not identified");
         }
+        Ok(())
+    }
+    
+     #[test]
+    fn test_run_and_detach() -> Result<()> {
+        let proc = Process::run("/bin/sleep", &["1"])?; // Sleeps 1 sec, not optiaml for testing
+        proc.print_map_infos();
+        proc.detach()?;
+        let res = waitpid(proc.pid, None).unwrap();
+        println!("waitpid result: {:?}", res);
         Ok(())
     }
 }
