@@ -119,12 +119,14 @@ impl<'a, P: PtraceOps> BreakpointManager<'a, P> {
         Ok(())
     }
 
-    pub fn enable_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
+    pub fn enable_breakpoint(&mut self, _addr: u64, _pid: Pid) -> Result<()> {
         //might be added later, check if necessary
+        Ok(())
     }
 
-    pub fn disable_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
+    pub fn disable_breakpoint(&mut self, _addr: u64, _pid: Pid) -> Result<()> {
         //might be added later, check if necessary
+        Ok(())
     }
 
     pub fn hit_breakpoint(&mut self, addr: u64) -> Result<()> {
