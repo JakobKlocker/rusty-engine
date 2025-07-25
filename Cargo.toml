@@ -7,4 +7,4 @@ edition = "2024"
 anyhow = "1.0.98"
 log = "0.4.27"
 mockall = "0.13.1"
-nix = { version = "0.30", features = ["process", "ptrace"] }
+nix = { version = "0.30", features = ["process", "ptrace", "signal"] }
