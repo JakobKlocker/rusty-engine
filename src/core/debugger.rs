@@ -23,17 +23,26 @@ pub struct Debugger {
 }
 
 impl Debugger {
-    pub fn new(debugee_pid_path: String, debuger_name: String) -> Self {
-        let real_ptrace = Box::new(RealPtrace);
-
-        Debugger {
-            process: Process::attach(0).expect("asd"),
-            breakpoint: BreakpointManager::new(real_ptrace),
-            //functions: FunctionInfo::new(&debugee_pid_path, debuger_name),
+    /// Attaches debugger to an existing process.
+    pub fn attach_to(pid: i32) -> Result<Self> {
+        let proc = Process::attach(pid)?;
+        let bp_manager = BreakpointManager::new(Box::new(RealPtrace));
+        Ok(Debugger {
+            process: proc,
+            breakpoint: bp_manager,
             state: DebuggerState::Interactive,
-            //dwarf: DwarfContext::new(&debugee_pid_path).unwrap(),
-            //path: debugee_pid_path,
-        }
+        })
+    }
+
+    /// Launches a new process to debug.
+    pub fn launch(exe_path: &str, args: &[&str]) -> Result<Self> {
+        let proc = Process::run(exe_path, args)?;
+        let bp_manager = BreakpointManager::new(Box::new(RealPtrace));
+        Ok(Debugger {
+            process: proc,
+            breakpoint: bp_manager,
+            state: DebuggerState::Interactive,
+        })
     }
 
     pub fn parse_address(&self, input: &str) -> Result<u64> {
