@@ -9,6 +9,7 @@ pub trait PtraceOps {
     fn write(&self, pid: Pid, addr: *mut libc::c_void, data: i64) -> Result<()>;
 }
 
+#[derive(Debug)]
 pub struct RealPtrace;
 
 impl PtraceOps for RealPtrace {
@@ -31,13 +32,21 @@ pub struct Breakpoint {
     pub hit_count: u64,
 }
 
-pub struct BreakpointManager<'a, P: PtraceOps> {
+pub struct BreakpointManager {
     breakpoints: HashMap<u64, Breakpoint>,
-    ptrace: &'a P,
+    ptrace: Box<dyn PtraceOps>,
 }
 
-impl<'a, P: PtraceOps> BreakpointManager<'a, P> {
-    pub fn new(ptrace: &'a P) -> Self {
+impl std::fmt::Debug for BreakpointManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("BreakpointManager")
+            .field("breakpoints", &self.breakpoints)
+            .field("ptrace", &"<PtraceOps>")
+            .finish()
+    }
+}
+impl BreakpointManager {
+    pub fn new(ptrace: Box<dyn PtraceOps>) -> Self {
         Self {
             breakpoints: HashMap::new(),
             ptrace,
@@ -198,7 +207,7 @@ mod tests {
             .times(1)
             .returning(|_, _, _| Ok(()));
 
-        let mut manager = BreakpointManager::new(&mock_ptrace);
+        let mut manager = BreakpointManager::new(Box::new(mock_ptrace));
 
         manager.set_breakpoint(test_addr, pid).unwrap();
         assert!(manager.has_breakpoint(test_addr));
@@ -216,7 +225,7 @@ mod tests {
         mock_ptrace.expect_read().returning(|_, _| Ok(0u64 as i64));
         mock_ptrace.expect_write().returning(|_, _, _| Ok(()));
 
-        let mut manager = BreakpointManager::new(&mock_ptrace);
+        let mut manager = BreakpointManager::new(Box::new(mock_ptrace));
 
         manager.set_breakpoint(test_addr, pid).unwrap();
 
