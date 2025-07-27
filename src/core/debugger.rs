@@ -1,10 +1,13 @@
 use crate::core::breakpoint::*;
 use crate::core::process::*;
+use crate::core::symbols::*;
 use anyhow::Result;
 use log::{debug, info};
 use nix::sys::ptrace::getregs;
 use std::path::Path;
 use std::process::Command;
+use std::fs;
+use anyhow::Context;
 
 #[derive(Debug, Clone)]
 pub enum DebuggerState {
@@ -18,8 +21,8 @@ pub struct Debugger {
     pub process: Process,
     pub breakpoint: BreakpointManager,
     pub state: DebuggerState,
-    //pub dwarf: DwarfContext,
-    //pub path: String,
+    pub functions: Vec<FunctionInfo>,
+    pub exe_path: String,
 }
 
 impl Debugger {
@@ -27,21 +30,26 @@ impl Debugger {
     pub fn attach_to(pid: i32) -> Result<Self> {
         let proc = Process::attach(pid)?;
         let bp_manager = BreakpointManager::new(Box::new(RealPtrace));
+        let path = get_exe_path_from_pid(pid)?;
         Ok(Debugger {
             process: proc,
             breakpoint: bp_manager,
             state: DebuggerState::Interactive,
+            functions: FunctionInfo::new(&path),
+            exe_path: path
         })
     }
 
     /// Launches a new process to debug.
-    pub fn launch(exe_path: &str, args: &[&str]) -> Result<Self> {
+    pub fn launch(exe_path: &String, args: &[&str]) -> Result<Self> {
         let proc = Process::run(exe_path, args)?;
         let bp_manager = BreakpointManager::new(Box::new(RealPtrace));
         Ok(Debugger {
             process: proc,
             breakpoint: bp_manager,
             state: DebuggerState::Interactive,
+            functions: FunctionInfo::new(&exe_path),
+            exe_path: exe_path.to_string()
         })
     }
 
@@ -56,6 +64,14 @@ impl Debugger {
                 .map_err(|e| anyhow::anyhow!("invalid dec address: {}", e))
         }
     }
+    
+        pub fn get_function_name(&self, target_addr: u64) -> Option<String> {
+        self.functions
+            .iter()
+            .find(|f| f.offset <= target_addr && f.offset + f.size > target_addr)
+            .map(|f| f.name.clone())
+    }
+
 }
 
 fn get_pid_from_input(input: String) -> i32 {
@@ -71,3 +87,11 @@ fn get_pid_from_input(input: String) -> i32 {
         panic!("provided pid|path not valid");
     }
 }
+
+fn get_exe_path_from_pid(pid: i32) -> Result<String> {
+    let exe_link = format!("/proc/{}/exe", pid);
+    let path = fs::read_link(&exe_link)
+        .with_context(|| format!("Failed to read exe link path for pid {}", pid))?;
+    Ok(path.to_string_lossy().to_string())
+}
+

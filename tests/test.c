@@ -1,8 +1,17 @@
+// test.c
 #include <stdio.h>
-#include <unistd.h>
+
+void foo() {
+    printf("In foo\n");
+}
+
+void bar() {
+    foo();
+    printf("In bar\n");
+}
+
 int main() {
-    puts("Test program started, going to sleep.");
-    sleep(30);
-    puts("Test program finishing.");
+    bar();
+    printf("In main\n");
     return 0;
 }
