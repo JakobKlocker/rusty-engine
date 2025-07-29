@@ -112,7 +112,7 @@ pub struct FunctionInfo {
 }
 
 impl FunctionInfo {
-    pub fn new(path: &String) -> Vec<FunctionInfo> {
+    pub fn new(path: &str) -> Vec<FunctionInfo> {
         let buffer = fs::read(path).unwrap();
         let mut ret = Vec::new();
         match GoblinObject::parse(&buffer).unwrap() {

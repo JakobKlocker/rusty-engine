@@ -43,14 +43,14 @@ impl Debugger {
     }
 
     /// Launches a new process to debug.
-    pub fn launch(exe_path: &String, args: &[&str]) -> Result<Self> {
+    pub fn launch(exe_path: &str, args: &[&str]) -> Result<Self> {
         let proc = Process::run(exe_path, args)?;
         let bp_manager = BreakpointManager::new(Box::new(RealPtrace));
         Ok(Debugger {
             process: proc,
             breakpoint: bp_manager,
             state: DebuggerState::Interactive,
-            functions: FunctionInfo::new(&exe_path),
+            functions: FunctionInfo::new(exe_path),
             dwarf: DwarfContext::new(&exe_path).unwrap(),
             exe_path: exe_path.to_string()
         })
