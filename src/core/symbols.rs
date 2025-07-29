@@ -35,74 +35,71 @@ impl DwarfContext {
         })
     }
 
-    pub fn get_line_and_file(&self, target_addr: u64) {
+    pub fn get_line_and_file(&self, target_addr: u64) -> Option<(std::path::PathBuf, u64)> {
         let load_section =
-            |id: gimli::SectionId| -> Result<borrow::Cow<[u8]>, Box<dyn error::Error>> {
+            |id: gimli::SectionId| -> Result<std::borrow::Cow<[u8]>, Box<dyn std::error::Error>> {
                 Ok(match self.object.section_by_name(id.name()) {
                     Some(section) => section.uncompressed_data()?,
-                    None => borrow::Cow::Borrowed(&[]),
+                    None => std::borrow::Cow::Borrowed(&[]),
                 })
             };
 
         let borrow_section =
-            |section| gimli::EndianSlice::new(borrow::Cow::as_ref(section), self.endian);
+            |section| gimli::EndianSlice::new(std::borrow::Cow::as_ref(section), self.endian);
 
-        let dwarf_sections = gimli::DwarfSections::load(&load_section).unwrap();
-
+        let dwarf_sections = gimli::DwarfSections::load(&load_section).ok()?;
         let dwarf = dwarf_sections.borrow(borrow_section);
 
         let mut units = dwarf.units();
-        while let Some(header) = units.next().unwrap() {
-            let unit = dwarf.unit(header).unwrap();
+        while let Some(header) = units.next().ok()? {
+            let unit = dwarf.unit(header).ok()?;
             let unit = unit.unit_ref(&dwarf);
 
             if let Some(program) = unit.line_program.clone() {
                 let comp_dir = unit
                     .comp_dir
                     .as_ref()
-                    .map(|d| PathBuf::from(d.to_string_lossy().into_owned()))
+                    .map(|d| std::path::PathBuf::from(d.to_string_lossy().into_owned()))
                     .unwrap_or_default();
 
                 let mut rows = program.rows();
                 let mut last_match = None;
 
-                while let Some((header, row)) = rows.next_row().unwrap() {
+                while let Some((header, row)) = rows.next_row().ok()? {
                     if row.end_sequence() {
                         continue;
                     }
-
                     if row.address() > target_addr {
                         break;
                     }
-
                     last_match = Some((header.clone(), row.clone()));
                 }
 
                 if let Some((header, row)) = last_match {
                     if let Some(file) = row.file(&header) {
-                        let mut path = comp_dir;
+                        let mut path = comp_dir.clone();
 
                         if file.directory_index() != 0 {
                             if let Some(dir) = file.directory(&header) {
-                                path.push(
-                                    unit.attr_string(dir).unwrap().to_string_lossy().as_ref(),
-                                );
+                                path.push(unit.attr_string(dir).ok()?.to_string_lossy().as_ref());
                             }
                         }
 
                         path.push(
                             unit.attr_string(file.path_name())
-                                .unwrap()
+                                .ok()?
                                 .to_string_lossy()
                                 .as_ref(),
                         );
 
                         let line = row.line().map(|l| l.get()).unwrap_or(0);
-                        println!("{}:{}", path.display(), line);
+
+                        return Some((path, line));
                     }
                 }
             }
         }
+        None
     }
 }
 
@@ -192,14 +189,14 @@ pub fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowInfo> {
                             (register.0, *offset)
                         }
                         rule => {
-                            return Err(anyhow::anyhow!("Unsupported CFA rule: {:?}", rule).into())
+                            return Err(anyhow::anyhow!("Unsupported CFA rule: {:?}", rule).into());
                         }
                     };
 
                     let ra_offset = match row.register(gimli::X86_64::RA) {
                         gimli::RegisterRule::Offset(off) => off,
                         rule => {
-                            return Err(anyhow::anyhow!("Unsupported RA rule: {:?}", rule).into())
+                            return Err(anyhow::anyhow!("Unsupported RA rule: {:?}", rule).into());
                         }
                     };
 

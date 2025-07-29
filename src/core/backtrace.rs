@@ -28,7 +28,7 @@ impl Backtrace for Debugger {
                 .ok_or_else(|| anyhow!("rip below base_addr"))?;
             let info = match get_unwind_info(&self.exe_path, func_offset) {
                 Ok(info) => info,
-                Err(_) => break, // no unwind info, end backtrace
+                Err(_) => break, 
             };
 
             let cfa_base = match info.cfa_register {
@@ -57,7 +57,7 @@ impl Backtrace for Debugger {
             frames.push(func_name);
 
             if ret_addr == 0 || rip == ret_addr {
-                break; // end backtrace if invalid or non-progressing pointer
+                break;
             }
 
             rip = ret_addr;

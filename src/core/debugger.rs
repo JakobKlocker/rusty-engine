@@ -22,6 +22,7 @@ pub struct Debugger {
     pub breakpoint: BreakpointManager,
     pub state: DebuggerState,
     pub functions: Vec<FunctionInfo>,
+    pub dwarf: DwarfContext,
     pub exe_path: String,
 }
 
@@ -36,6 +37,7 @@ impl Debugger {
             breakpoint: bp_manager,
             state: DebuggerState::Interactive,
             functions: FunctionInfo::new(&path),
+            dwarf: DwarfContext::new(&path).unwrap(),
             exe_path: path
         })
     }
@@ -49,6 +51,7 @@ impl Debugger {
             breakpoint: bp_manager,
             state: DebuggerState::Interactive,
             functions: FunctionInfo::new(&exe_path),
+            dwarf: DwarfContext::new(&exe_path).unwrap(),
             exe_path: exe_path.to_string()
         })
     }
