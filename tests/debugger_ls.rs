@@ -1,5 +1,7 @@
 // In tests/debugger_smoke.rs
 
+use rusty_engine::core::disassemble::Disassembler;
+
 #[test]
 fn integration_attach_and_set_breakpoint_on_ls() {
     use std::process::{Command, Child};
@@ -21,4 +23,20 @@ fn integration_attach_and_set_breakpoint_on_ls() {
     dbg.cont().expect("continue failed");
 
     let _ = child.kill();
+}
+
+#[test]
+fn integration_run_disassemble(){
+    
+    use std::process::{Command, Child};
+    use std::os::unix::process::CommandExt;
+    use std::thread;
+    use std::time::Duration;
+    use rusty_engine::core::debugger::*;
+    use rusty_engine::core::stepping::Stepping;
+
+    let mut dbg = Debugger::launch("/home/jakob/projects/rusty-engine/tests/a.out", &[]).unwrap();
+    thread::sleep(Duration::from_millis(500));
+    let dis = dbg.disassemble().unwrap();
+    println!("{}", dis);
 }
