@@ -1,14 +1,14 @@
 // In tests/debugger_smoke.rs
 
-use rusty_engine::core::disassemble::Disassembler;
+use rusty_engine::core::{backtrace::Backtrace, disassemble::Disassembler, stepping::Stepping};
 
 #[test]
 fn integration_attach_and_set_breakpoint_on_ls() {
     use rusty_engine::core::debugger::*;
     use rusty_engine::core::stepping::Stepping;
+    use std::process::Command;
     use std::thread;
     use std::time::Duration;
-    use std::process::Command;
 
     let mut child = Command::new("/home/jakob/projects/rusty-engine/tests/a.out")
         .spawn()
@@ -25,12 +25,11 @@ fn integration_attach_and_set_breakpoint_on_ls() {
 }
 
 #[test]
-fn integration_run_disassemble(){
-    
-    use std::thread;
-    use std::time::Duration;
+fn integration_run_disassemble() {
     use rusty_engine::core::debugger::*;
     use rusty_engine::core::stepping::Stepping;
+    use std::thread;
+    use std::time::Duration;
 
     let mut dbg = Debugger::launch("/home/jakob/projects/rusty-engine/tests/a.out", &[]).unwrap();
     thread::sleep(Duration::from_millis(500));
@@ -38,23 +37,35 @@ fn integration_run_disassemble(){
     println!("{}", dis);
 }
 
-
 #[test]
-fn bp_run_test(){
-    
-    use std::process::{Command, Child};
-    use std::os::unix::process::CommandExt;
-    use std::thread;
-    use std::time::Duration;
+fn bp_run_test() {
     use rusty_engine::core::debugger::*;
     use rusty_engine::core::stepping::Stepping;
+    use std::os::unix::process::CommandExt;
+    use std::process::{Child, Command};
+    use std::thread;
+    use std::time::Duration;
 
     let mut dbg = Debugger::launch("/home/jakob/projects/rusty-engine/tests/a.out", &[]).unwrap();
     println!("baseaddr: {}", dbg.process.base_addr);
     println!("{:?}", dbg.functions);
-    if let Some(func) = dbg.functions.iter().find(|f| f.name == "foo"){
-        dbg.breakpoint.set_breakpoint(func.offset + dbg.process.base_addr, dbg.process.pid).unwrap();
+    if let Some(func) = dbg.functions.iter().find(|f| f.name == "foo") {
+        dbg.set_breakpoint_at_addr(func.offset + dbg.process.base_addr)
+            .unwrap();
         println!("func exists");
     }
     dbg.cont();
+}
+
+#[test]
+fn bp_on_file_line() {
+    use rusty_engine::core::debugger::*;
+
+    let mut dbg = Debugger::launch("/home/jakob/projects/rusty-engine/tests/a.out", &[]).unwrap();
+    
+
+    dbg.set_breakpoint_at_line("test.c", 4).unwrap();
+    dbg.cont();
+    dbg.wait();
+    println!("{:?}", dbg.backtrace().unwrap());
 }

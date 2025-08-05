@@ -53,7 +53,7 @@ impl BreakpointManager {
         }
     }
 
-    pub fn set_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
+    pub(crate) fn set_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
         if self.breakpoints.contains_key(&addr) {
             bail!("breakpoint exists already");
         }

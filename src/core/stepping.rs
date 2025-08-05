@@ -5,17 +5,24 @@ use anyhow::Result;
 use capstone::prelude::*;
 use nix::sys::ptrace;
 use nix::sys::ptrace::*;
+use nix::sys::wait::{waitpid, WaitStatus};
 
 pub trait Stepping {
     fn cont(&mut self) -> Result<()>;
     fn single_step(&mut self) -> Result<()>;
     fn step_over(&mut self) -> Result<()>;
+    fn wait(&mut self) -> Result<()>;
 }
 
     impl Stepping for Debugger {
     fn cont(&mut self) -> Result<()> {
         nix::sys::ptrace::cont(self.process.pid, None)?;
         self.state = DebuggerState::AwaitingTrap;
+        Ok(())
+    }
+    
+    fn wait(&mut self) -> Result<()> {
+        waitpid(self.process.pid, None);
         Ok(())
     }
 

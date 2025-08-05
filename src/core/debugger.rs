@@ -1,13 +1,16 @@
 use crate::core::breakpoint::*;
 use crate::core::process::*;
 use crate::core::symbols::*;
+use anyhow::Context;
 use anyhow::Result;
+use libc::sleep;
 use log::{debug, info};
 use nix::sys::ptrace::getregs;
+use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::fs;
-use anyhow::Context;
+use std::time::Duration;
+use std::thread;
 
 #[derive(Debug, Clone)]
 pub enum DebuggerState {
@@ -27,7 +30,7 @@ pub struct Debugger {
 }
 
 impl Debugger {
-    /// Attaches debugger to an existing process.
+    /// Attaches debugger to an existing process
     pub fn attach_to(pid: i32) -> Result<Self> {
         let proc = Process::attach(pid)?;
         let bp_manager = BreakpointManager::new(Box::new(RealPtrace));
@@ -38,13 +41,14 @@ impl Debugger {
             state: DebuggerState::Interactive,
             functions: FunctionInfo::new(&path),
             dwarf: DwarfContext::new(&path).unwrap(),
-            exe_path: path
+            exe_path: path,
         })
     }
 
-    /// Launches a new process to debug.
+    /// Launches a new process to debug
     pub fn launch(exe_path: &str, args: &[&str]) -> Result<Self> {
         let proc = Process::run(exe_path, args)?;
+        thread::sleep(Duration::from_millis(500));
         let bp_manager = BreakpointManager::new(Box::new(RealPtrace));
         Ok(Debugger {
             process: proc,
@@ -52,10 +56,39 @@ impl Debugger {
             state: DebuggerState::Interactive,
             functions: FunctionInfo::new(exe_path),
             dwarf: DwarfContext::new(&exe_path).unwrap(),
-            exe_path: exe_path.to_string()
+            exe_path: exe_path.to_string(),
         })
     }
 
+    // Set breakpoint at a certain function
+    pub fn set_breakpoint_at_function(&mut self, name: &str) -> Result<()> {
+        let func = self
+            .functions
+            .iter()
+            .find(|f| f.name == name)
+            .ok_or_else(|| anyhow::anyhow!("Function not found"))?;
+        let addr = self.process.base_addr + func.offset;
+        self.breakpoint.set_breakpoint(addr, self.process.pid)
+    }
+
+    // Set breakpoint at a certain function
+    pub fn set_breakpoint_at_line(&mut self, file: &str, line: u64) -> Result<()> {
+        if let Some(addr) = self.dwarf.find_address_for_line(file, line) {
+            self.breakpoint
+                .set_breakpoint(self.process.base_addr + addr, self.process.pid)
+        } else {
+            anyhow::bail!("No code address found for {}:{}", file, line)
+        }
+    }
+    
+    // Set breakpoint at a certain address
+    pub fn set_breakpoint_at_addr(&mut self, addr: u64) -> Result<()>{
+        self.breakpoint.set_breakpoint(addr, self.process.pid)
+    }
+
+    
+
+    // HAS TO BE REFACTORED AND MOVED
     pub fn parse_address(&self, input: &str) -> Result<u64> {
         let trimmed = input.trim();
 
@@ -67,14 +100,13 @@ impl Debugger {
                 .map_err(|e| anyhow::anyhow!("invalid dec address: {}", e))
         }
     }
-    
-        pub fn get_function_name(&self, target_addr: u64) -> Option<String> {
+
+    pub fn get_function_name(&self, target_addr: u64) -> Option<String> {
         self.functions
             .iter()
             .find(|f| f.offset <= target_addr && f.offset + f.size > target_addr)
             .map(|f| f.name.clone())
     }
-
 }
 
 fn get_pid_from_input(input: String) -> i32 {
@@ -97,4 +129,3 @@ fn get_exe_path_from_pid(pid: i32) -> Result<String> {
         .with_context(|| format!("Failed to read exe link path for pid {}", pid))?;
     Ok(path.to_string_lossy().to_string())
 }
-
