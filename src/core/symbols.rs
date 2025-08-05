@@ -279,6 +279,7 @@ pub(crate) fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowI
     //need better way to detect end of backtrace
 }
 
+#[allow(dead_code)]
 pub(crate) trait Symbols {
     fn print_sections(&self) -> Result<()>;
 }

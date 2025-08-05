@@ -7,8 +7,8 @@ use log::info;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub enum DebuggerState {
@@ -19,7 +19,7 @@ pub enum DebuggerState {
 
 #[derive(Debug)]
 pub struct Debugger {
-    pub process: Process,
+    pub(crate) process: Process,
     pub(crate) breakpoint: BreakpointManager,
     pub state: DebuggerState,
     pub functions: Vec<FunctionInfo>,
@@ -78,13 +78,16 @@ impl Debugger {
             anyhow::bail!("No code address found for {}:{}", file, line)
         }
     }
-    
+
     // Set breakpoint at a certain address
-    pub fn set_breakpoint_at_addr(&mut self, addr: u64) -> Result<()>{
+    pub fn set_breakpoint_at_addr(&mut self, addr: u64) -> Result<()> {
         self.breakpoint.set_breakpoint(addr, self.process.pid)
     }
 
-    
+    // Returns Base Address
+    pub fn base_addr(&self) -> u64 {
+        self.process.base_addr
+    }
 
     // HAS TO BE REFACTORED AND MOVED
     pub(crate) fn parse_address(&self, input: &str) -> Result<u64> {

@@ -27,10 +27,10 @@ fn bp_run_test() {
     use rusty_engine::core::debugger::*;
 
     let mut dbg = Debugger::launch("/home/jakob/projects/rusty-engine/tests/a.out", &[]).unwrap();
-    println!("baseaddr: {}", dbg.process.base_addr);
+    println!("baseaddr: {}", dbg.base_addr());
     println!("{:?}", dbg.functions);
     if let Some(func) = dbg.functions.iter().find(|f| f.name == "foo") {
-        dbg.set_breakpoint_at_addr(func.offset + dbg.process.base_addr)
+        dbg.set_breakpoint_at_addr(func.offset + dbg.base_addr())
             .unwrap();
         println!("func exists");
     }

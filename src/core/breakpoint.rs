@@ -24,7 +24,7 @@ impl PtraceOps for RealPtrace {
 }
 
 #[derive(Debug)]
-pub(crate) struct Breakpoint {
+pub struct Breakpoint {
     pub(crate) enabled: bool,
     pub(crate) addr: u64,
     pub(crate) original_byte: u8,
@@ -46,7 +46,7 @@ impl std::fmt::Debug for BreakpointManager {
     }
 }
 impl BreakpointManager {
-    pub fn new(ptrace: Box<dyn PtraceOps>) -> Self {
+    pub(crate) fn new(ptrace: Box<dyn PtraceOps>) -> Self {
         Self {
             breakpoints: HashMap::new(),
             ptrace,
@@ -85,7 +85,7 @@ impl BreakpointManager {
         Ok(())
     }
 
-    pub fn remove_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
+    pub(crate) fn remove_breakpoint(&mut self, addr: u64, pid: Pid) -> Result<()> {
         if let Some(bp) = self.breakpoints.remove(&addr) {
             let aligned_addr = addr & !0x7;
             let byte_offset = (addr % 8) as u32;
@@ -128,17 +128,17 @@ impl BreakpointManager {
         Ok(())
     }
 
-    pub fn enable_breakpoint(&mut self, _addr: u64, _pid: Pid) -> Result<()> {
+    pub(crate) fn enable_breakpoint(&mut self, _addr: u64, _pid: Pid) -> Result<()> {
         //might be added later, check if necessary
         Ok(())
     }
 
-    pub fn disable_breakpoint(&mut self, _addr: u64, _pid: Pid) -> Result<()> {
+    pub(crate) fn disable_breakpoint(&mut self, _addr: u64, _pid: Pid) -> Result<()> {
         //might be added later, check if necessary
         Ok(())
     }
 
-    pub fn hit_breakpoint(&mut self, addr: u64) -> Result<()> {
+    pub(crate) fn hit_breakpoint(&mut self, addr: u64) -> Result<()> {
         if let Some(bp) = self.breakpoints.get_mut(&addr) {
             bp.hit_count += 1;
             Ok(())
