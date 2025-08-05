@@ -11,7 +11,9 @@ void bar() {
 }
 
 int main() {
+    
     bar();
     printf("In main\n");
+    getchar();
     return 0;
 }

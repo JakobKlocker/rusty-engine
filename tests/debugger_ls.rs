@@ -4,12 +4,11 @@ use rusty_engine::core::disassemble::Disassembler;
 
 #[test]
 fn integration_attach_and_set_breakpoint_on_ls() {
-    use std::process::{Command, Child};
-    use std::os::unix::process::CommandExt;
-    use std::thread;
-    use std::time::Duration;
     use rusty_engine::core::debugger::*;
     use rusty_engine::core::stepping::Stepping;
+    use std::thread;
+    use std::time::Duration;
+    use std::process::Command;
 
     let mut child = Command::new("/home/jakob/projects/rusty-engine/tests/a.out")
         .spawn()
@@ -28,8 +27,6 @@ fn integration_attach_and_set_breakpoint_on_ls() {
 #[test]
 fn integration_run_disassemble(){
     
-    use std::process::{Command, Child};
-    use std::os::unix::process::CommandExt;
     use std::thread;
     use std::time::Duration;
     use rusty_engine::core::debugger::*;
@@ -39,4 +36,25 @@ fn integration_run_disassemble(){
     thread::sleep(Duration::from_millis(500));
     let dis = dbg.disassemble().unwrap();
     println!("{}", dis);
+}
+
+
+#[test]
+fn bp_run_test(){
+    
+    use std::process::{Command, Child};
+    use std::os::unix::process::CommandExt;
+    use std::thread;
+    use std::time::Duration;
+    use rusty_engine::core::debugger::*;
+    use rusty_engine::core::stepping::Stepping;
+
+    let mut dbg = Debugger::launch("/home/jakob/projects/rusty-engine/tests/a.out", &[]).unwrap();
+    println!("baseaddr: {}", dbg.process.base_addr);
+    println!("{:?}", dbg.functions);
+    if let Some(func) = dbg.functions.iter().find(|f| f.name == "foo"){
+        dbg.breakpoint.set_breakpoint(func.offset + dbg.process.base_addr, dbg.process.pid).unwrap();
+        println!("func exists");
+    }
+    dbg.cont();
 }
