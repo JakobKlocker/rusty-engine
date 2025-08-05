@@ -2,21 +2,21 @@ use crate::core::debugger::Debugger;
 use anyhow::Result;
 use gimli::{BaseAddresses, EhFrame, RunTimeEndian, UnwindContext, UnwindSection};
 use goblin::Object as GoblinObject;
-use log::{debug, info};
+use log::debug;
 use memmap2::Mmap;
 use object::{Object, ObjectSection};
-use std::{borrow, error, fs, path::PathBuf};
+use std::{error, fs};
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct DwarfContext {
+pub(crate) struct DwarfContext {
     pub mmap: Mmap,
     pub endian: RunTimeEndian,
     pub object: object::File<'static>,
 }
 
 impl DwarfContext {
-    pub fn new(path: &str) -> Result<Self, Box<dyn error::Error>> {
+    pub(crate) fn new(path: &str) -> Result<Self, Box<dyn error::Error>> {
         let file = fs::File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         let mmap_static: &'static [u8] = unsafe { std::mem::transmute(&*mmap) };
@@ -35,7 +35,71 @@ impl DwarfContext {
         })
     }
 
-    pub fn get_line_and_file(&self, target_addr: u64) -> Option<(std::path::PathBuf, u64)> {
+    pub(crate) fn find_address_for_line(&self, target_file: &str, target_line: u64) -> Option<u64> {
+        let load_section =
+            |id: gimli::SectionId| -> Result<std::borrow::Cow<[u8]>, Box<dyn std::error::Error>> {
+                Ok(match self.object.section_by_name(id.name()) {
+                    Some(section) => section.uncompressed_data()?,
+                    None => std::borrow::Cow::Borrowed(&[]),
+                })
+            };
+
+        let borrow_section =
+            |section| gimli::EndianSlice::new(std::borrow::Cow::as_ref(section), self.endian);
+
+        let dwarf_sections = gimli::DwarfSections::load(&load_section).ok()?;
+        let dwarf = dwarf_sections.borrow(borrow_section);
+
+        let mut units = dwarf.units();
+
+        while let Some(header) = units.next().ok()? {
+            let unit = dwarf.unit(header).ok()?;
+            let unit = unit.unit_ref(&dwarf);
+
+            if let Some(program) = unit.line_program.clone() {
+                let comp_dir = unit
+                    .comp_dir
+                    .as_ref()
+                    .map(|d| std::path::PathBuf::from(d.to_string_lossy().into_owned()))
+                    .unwrap_or_default();
+
+                let mut rows = program.rows();
+
+                while let Some((_header, row)) = rows.next_row().ok()? {
+                    if row.end_sequence() {
+                        continue;
+                    }
+
+                    if let Some(file) = row.file(&_header) {
+                        let mut path = comp_dir.clone();
+
+                        if file.directory_index() != 0 {
+                            if let Some(dir) = file.directory(&_header) {
+                                path.push(unit.attr_string(dir).ok()?.to_string_lossy().as_ref());
+                            }
+                        }
+                        path.push(
+                            unit.attr_string(file.path_name())
+                                .ok()?
+                                .to_string_lossy()
+                                .as_ref(),
+                        );
+
+                        if path.to_string_lossy().ends_with(target_file) {
+                            if let Some(line_row) = row.line() {
+                                if line_row.get() == target_line {
+                                    return Some(row.address());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn get_line_and_file(&self, target_addr: u64) -> Option<(std::path::PathBuf, u64)> {
         let load_section =
             |id: gimli::SectionId| -> Result<std::borrow::Cow<[u8]>, Box<dyn std::error::Error>> {
                 Ok(match self.object.section_by_name(id.name()) {
@@ -137,13 +201,13 @@ impl FunctionInfo {
 }
 
 #[derive(Debug)]
-pub struct UnwindRowInfo {
+pub(crate) struct UnwindRowInfo {
     pub cfa_register: u16,
     pub cfa_offset: i64,
     pub ra_offset: i64,
 }
 
-pub fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowInfo> {
+pub(crate) fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowInfo> {
     let file = fs::File::open(path)?;
     let mmap = unsafe { Mmap::map(&file)? };
     let object = object::File::parse(&*mmap)?;
@@ -215,7 +279,7 @@ pub fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowInfo> {
     //need better way to detect end of backtrace
 }
 
-pub trait Symbols {
+pub(crate) trait Symbols {
     fn print_sections(&self) -> Result<()>;
 }
 

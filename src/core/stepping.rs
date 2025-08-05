@@ -1,10 +1,9 @@
-use crate::core::memory::read_process_memory;
-use crate::core::process;
 use crate::core::debugger::*;
+use crate::core::memory::read_process_memory;
 use anyhow::Result;
 use capstone::prelude::*;
-use nix::sys::ptrace;
 use nix::sys::ptrace::*;
+use nix::sys::wait::waitpid;
 
 pub trait Stepping {
     fn cont(&mut self) -> Result<()>;
@@ -12,10 +11,11 @@ pub trait Stepping {
     fn step_over(&mut self) -> Result<()>;
 }
 
-    impl Stepping for Debugger {
+impl Stepping for Debugger {
     fn cont(&mut self) -> Result<()> {
         nix::sys::ptrace::cont(self.process.pid, None)?;
         self.state = DebuggerState::AwaitingTrap;
+        waitpid(self.process.pid, None).unwrap();
         Ok(())
     }
 

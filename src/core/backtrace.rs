@@ -6,7 +6,6 @@ const MAX_FRAMES: usize = 64;
 use crate::core::debugger::Debugger;
 use crate::core::symbols::get_unwind_info;
 use anyhow::{Result, anyhow};
-use log::debug;
 use nix::sys::ptrace;
 use nix::sys::ptrace::*;
   
@@ -51,7 +50,7 @@ impl Backtrace for Debugger {
             let func_offset = ret_addr.checked_sub(self.process.base_addr).unwrap_or(0);
 
             let func_name = self
-                .get_function_name(func_offset)
+                .get_function_name_from_addr(func_offset)
                 .unwrap_or_else(|| "_start".to_string());
 
             frames.push(func_name);

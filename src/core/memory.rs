@@ -1,4 +1,3 @@
-use crate::core::debugger;
 use crate::core::debugger::Debugger;
 use anyhow::{Result, anyhow};
 use libc::{iovec, pid_t, process_vm_readv};
@@ -46,7 +45,7 @@ impl Memory for Debugger {
 }
 
 /// Reads memory from another process using process_vm_readv syscall
-pub fn read_process_memory(pid: Pid, addr: usize, buf: &mut [u8]) -> Result<usize> {
+pub(crate) fn read_process_memory(pid: Pid, addr: usize, buf: &mut [u8]) -> Result<usize> {
     let local = iovec {
         iov_base: buf.as_mut_ptr() as *mut _,
         iov_len: buf.len(),
@@ -127,7 +126,6 @@ impl FromBytes for i64 {
 
 #[cfg(test)]
 mod from_bytes_tests {
-    use super::FromBytes;
 
     #[test]
     fn test_u8_from_bytes() {
