@@ -3,9 +3,7 @@ use crate::core::process::*;
 use crate::core::symbols::*;
 use anyhow::Context;
 use anyhow::Result;
-use libc::sleep;
-use log::{debug, info};
-use nix::sys::ptrace::getregs;
+use log::info;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -22,10 +20,10 @@ pub enum DebuggerState {
 #[derive(Debug)]
 pub struct Debugger {
     pub process: Process,
-    pub breakpoint: BreakpointManager,
+    pub(crate) breakpoint: BreakpointManager,
     pub state: DebuggerState,
     pub functions: Vec<FunctionInfo>,
-    pub dwarf: DwarfContext,
+    pub(crate) dwarf: DwarfContext,
     pub exe_path: String,
 }
 
@@ -89,7 +87,7 @@ impl Debugger {
     
 
     // HAS TO BE REFACTORED AND MOVED
-    pub fn parse_address(&self, input: &str) -> Result<u64> {
+    pub(crate) fn parse_address(&self, input: &str) -> Result<u64> {
         let trimmed = input.trim();
 
         if let Some(stripped) = trimmed.strip_prefix("0x") {
@@ -101,7 +99,7 @@ impl Debugger {
         }
     }
 
-    pub fn get_function_name(&self, target_addr: u64) -> Option<String> {
+    pub fn get_function_name_from_addr(&self, target_addr: u64) -> Option<String> {
         self.functions
             .iter()
             .find(|f| f.offset <= target_addr && f.offset + f.size > target_addr)
@@ -109,6 +107,7 @@ impl Debugger {
     }
 }
 
+#[allow(dead_code)]
 fn get_pid_from_input(input: String) -> i32 {
     if Path::new(&format!("/proc/{}", input)).is_dir() {
         info!("{} is a pid", input);

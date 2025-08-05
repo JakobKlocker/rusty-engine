@@ -24,12 +24,12 @@ impl PtraceOps for RealPtrace {
 }
 
 #[derive(Debug)]
-pub struct Breakpoint {
-    pub enabled: bool,
-    pub addr: u64,
-    pub original_byte: u8,
-    pub temporary: bool,
-    pub hit_count: u64,
+pub(crate) struct Breakpoint {
+    pub(crate) enabled: bool,
+    pub(crate) addr: u64,
+    pub(crate) original_byte: u8,
+    pub(crate) temporary: bool,
+    pub(crate) hit_count: u64,
 }
 
 pub struct BreakpointManager {

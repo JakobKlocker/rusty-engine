@@ -2,21 +2,21 @@ use crate::core::debugger::Debugger;
 use anyhow::Result;
 use gimli::{BaseAddresses, EhFrame, RunTimeEndian, UnwindContext, UnwindSection};
 use goblin::Object as GoblinObject;
-use log::{debug, info};
+use log::debug;
 use memmap2::Mmap;
 use object::{Object, ObjectSection};
-use std::{borrow, error, fs, path::PathBuf};
+use std::{error, fs};
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct DwarfContext {
+pub(crate) struct DwarfContext {
     pub mmap: Mmap,
     pub endian: RunTimeEndian,
     pub object: object::File<'static>,
 }
 
 impl DwarfContext {
-    pub fn new(path: &str) -> Result<Self, Box<dyn error::Error>> {
+    pub(crate) fn new(path: &str) -> Result<Self, Box<dyn error::Error>> {
         let file = fs::File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         let mmap_static: &'static [u8] = unsafe { std::mem::transmute(&*mmap) };
@@ -35,7 +35,7 @@ impl DwarfContext {
         })
     }
 
-    pub fn find_address_for_line(&self, target_file: &str, target_line: u64) -> Option<u64> {
+    pub(crate) fn find_address_for_line(&self, target_file: &str, target_line: u64) -> Option<u64> {
         let load_section =
             |id: gimli::SectionId| -> Result<std::borrow::Cow<[u8]>, Box<dyn std::error::Error>> {
                 Ok(match self.object.section_by_name(id.name()) {
@@ -99,7 +99,7 @@ impl DwarfContext {
         None
     }
 
-    pub fn get_line_and_file(&self, target_addr: u64) -> Option<(std::path::PathBuf, u64)> {
+    pub(crate) fn get_line_and_file(&self, target_addr: u64) -> Option<(std::path::PathBuf, u64)> {
         let load_section =
             |id: gimli::SectionId| -> Result<std::borrow::Cow<[u8]>, Box<dyn std::error::Error>> {
                 Ok(match self.object.section_by_name(id.name()) {
@@ -201,13 +201,13 @@ impl FunctionInfo {
 }
 
 #[derive(Debug)]
-pub struct UnwindRowInfo {
+pub(crate) struct UnwindRowInfo {
     pub cfa_register: u16,
     pub cfa_offset: i64,
     pub ra_offset: i64,
 }
 
-pub fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowInfo> {
+pub(crate) fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowInfo> {
     let file = fs::File::open(path)?;
     let mmap = unsafe { Mmap::map(&file)? };
     let object = object::File::parse(&*mmap)?;
@@ -279,7 +279,7 @@ pub fn get_unwind_info(path: &str, target_addr: u64) -> Result<UnwindRowInfo> {
     //need better way to detect end of backtrace
 }
 
-pub trait Symbols {
+pub(crate) trait Symbols {
     fn print_sections(&self) -> Result<()>;
 }
 

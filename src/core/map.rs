@@ -7,7 +7,7 @@ use anyhow::{Result, bail};
 
 /// Represents a single memory mapping of a process (a line from `/proc/[pid]/maps`).
 #[derive(Debug)]
-pub struct Map {
+pub(crate) struct Map {
     pub addr_start: u64,
     pub addr_end: u64,
     pub read: bool,
